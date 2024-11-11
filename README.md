@@ -46,7 +46,7 @@ python3.12 cli.py -r 1 -s 0,1,2,3,4,5,6,7,8,9,10
 ```bash
 cd front2
 cd themagicshelf
-npm install
+npm install --force
 ```
 
 Then run the frontend:
