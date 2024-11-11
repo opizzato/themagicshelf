@@ -1,0 +1,136 @@
+digraph DocumentProcessing {
+    // Graph settings
+    rankdir=TB;
+    node [shape=box, style="rounded"];
+    
+    // Input sources
+    subgraph cluster_inputs {
+        label="Input Sources";
+        style=dotted;
+        urls [label="URLs"];
+        pdfs [label="PDFs"];
+        samples [label="Sample Documents"];
+    }
+    
+    // Step 0: Load documents
+    subgraph cluster_0 {
+        label="0. Load Documents";
+        style=dotted;
+        docs_load [label="Document Loading"];
+    }
+    
+    // Step 1: Create chunks and summaries
+    subgraph cluster_1 {
+        label="1. Create Chunks & Summaries";
+        style=dotted;
+        split [label="SentenceSplitter"];
+        sum_index [label="DocumentSummaryIndex"];
+    }
+    
+    // Step 2: Embed chunks
+    subgraph cluster_2 {
+        label="2. Embed Chunks";
+        style=dotted;
+        vec_store [label="VectorStoreIndex"];
+        chroma [label="ChromaDB"];
+    }
+    
+    // Step 3-4: Classification
+    subgraph cluster_3_4 {
+        label="3-4. Classification";
+        style=dotted;
+        class_info [label="Generate Classification Info"];
+        class_sys [label="Create Classification System"];
+    }
+    
+    // Step 5-6: Document Types
+    subgraph cluster_5_6 {
+        label="5-6. Document Types";
+        style=dotted;
+        type_gen [label="Generate Document Types"];
+        type_clean [label="Clean & Regroup Types"];
+    }
+    
+    // Step 7-8: Summaries
+    subgraph cluster_7_8 {
+        label="7-8. Summaries";
+        style=dotted;
+        typed_sum [label="Generate Typed Summaries"];
+        class_sum [label="Generate Classification Summaries"];
+    }
+    
+    // Step 9: Sub Classification Summaries
+    subgraph cluster_9 {
+        label="9. Generate Sub Classification Summaries";
+        style=dotted;
+        sub_class_sum [label="Generate Sub Branch Summaries"];
+    }
+    
+    // Step 10: Links
+    subgraph cluster_10 {
+        label="10. Generate Links";
+        style=dotted;
+        sim_chunks [label="Find Similar Chunks"];
+        doc_links [label="Create Document Links"];
+    }
+    
+    // Step 11: Query
+    subgraph cluster_11 {
+        label="11. Query System";
+        style=dotted;
+        vec_query [label="Vector Search"];
+        class_query [label="Classification Search"];
+        final_ctx [label="Final Retrieval Context"];
+    }
+    
+    // File artifacts
+    node [shape=note, style="filled", fillcolor=lightyellow];
+    nodes0 [label="nodes_0.json"];
+    nodes1 [label="nodes_1.json"];
+    nodes2 [label="nodes_2.json"];
+    nodes3 [label="nodes_3.json"];
+    nodes4 [label="nodes_4.json"];
+    store0 [label="store_0.json"];
+    store1 [label="store_1.json"];
+    store2 [label="store_2.json"];
+    store3 [label="store_3.json"];
+    store4 [label="store_4.json"];
+    store5 [label="store_5.json"];
+    sum_idx [label="summary_index/", shape=folder, style="filled"];
+    vec_idx [label="vector_index/", shape=folder, style="filled"];
+    
+    // Connections between components
+    {urls pdfs samples} -> docs_load;
+    docs_load -> split;
+    split -> sum_index;
+    sum_index -> vec_store;
+    vec_store -> chroma;
+    sum_index -> class_info;
+    class_info -> class_sys;
+    class_sys -> type_gen;
+    type_gen -> type_clean;
+    type_clean -> typed_sum;
+    typed_sum -> class_sum;
+    class_sum -> sub_class_sum;
+    sub_class_sum -> sim_chunks;
+    {chroma sum_index} -> sim_chunks;
+    sim_chunks -> doc_links;
+    doc_links -> vec_query;
+    doc_links -> class_query;
+    {vec_query class_query} -> final_ctx;
+    
+    // File artifact connections
+    docs_load -> nodes0;
+    sum_index -> sum_idx;
+    chroma -> vec_idx;
+    class_info -> nodes1;
+    class_sys -> nodes2;
+    class_sys -> store0;
+    type_gen -> nodes3;
+    type_clean -> nodes4;
+    type_clean -> store1;
+    typed_sum -> store2;
+    class_sum -> store3;
+    sub_class_sum -> store4;
+    doc_links -> store5;
+}

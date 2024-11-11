@@ -1,0 +1,17 @@
+*.html
+!generator.html
+*.json
+!package.json
+!package-lock.json
+!full_nodes.json
+!index.html
+!manifest.json
+!tsconfig.json
+venv
+__pycache__
+data/**/*.pdf
+output/run_*
+*/node_modules
+.env
+contest_nvidia_env
+file_cache
