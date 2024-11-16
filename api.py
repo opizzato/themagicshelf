@@ -328,3 +328,20 @@ def add_search_results():
         "message": "Search results added successfully"
     }), 200
 
+@app.route("/login", methods=['POST'])
+def login():
+    return flask.jsonify({
+        "data": {
+            "user": {
+                "id": 1,
+                "name": "John Doe"
+            },
+            "token": "1234567890"
+        }
+    }), 200
+
+@app.route("/logout", methods=['POST'])
+def logout():
+    return flask.jsonify({
+        "status": "ok"
+    }), 200

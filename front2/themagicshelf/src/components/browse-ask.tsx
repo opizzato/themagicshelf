@@ -282,7 +282,7 @@ export default function BrowseAskComponent() {
 
       setStore(storeData?.store)
       setNodes(treeData?.nodes)
-      setCategories([categoryTree?.category_tree] || [])
+      setCategories(categoryTree?.category_tree ? [categoryTree?.category_tree] : [])
       setEdges(treeData?.edges)
     } catch (err) {
       console.log(err)

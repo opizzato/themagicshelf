@@ -9,19 +9,19 @@ const config: Config = {
   ],
   theme: {
   	extend: {
-		backgroundImage: {
+  		backgroundImage: {
 			'wooden-shelf': "url('/wood-texture.png')",
-		  },
-		  backgroundSize: {
-			'shelf-size': '100% 100%',
-		  },
-		  backgroundPosition: {
-			'shelf-position': 'center center',
-		  },
-		  backgroundRepeat: {
-			'shelf-repeat': 'no-repeat',
-		  },
-		colors: {
+  		},
+  		backgroundSize: {
+  			'shelf-size': '100% 100%'
+  		},
+  		backgroundPosition: {
+  			'shelf-position': 'center center'
+  		},
+  		backgroundRepeat: {
+  			'shelf-repeat': 'no-repeat'
+  		},
+  		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
