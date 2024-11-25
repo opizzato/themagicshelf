@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Card, CardContent } from '@/components/ui/card'
 import axios from 'axios'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 
 const PREPROCESSED_CULTURE_URLS = [
   "https://text.npr.org/g-s1-29121",
@@ -47,7 +48,6 @@ type Document = {
 }
 
 export default function InputComponent() {
-  const [runId, setRunId] = useState(0)
   const [documents, setDocuments] = useState<Document[]>([])
   const [url, setUrl] = useState('')
   const [preprocessedType, setPreprocessedType] = useState('')
@@ -59,6 +59,15 @@ export default function InputComponent() {
   const [logs, setLogs] = useState<string[]>([]);
   const [newLogs, setNewLogs] = useState<string[]>([]);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const [token, setToken] = useLocalStorage('token', null);
+  const [user, setUser] = useLocalStorage('user', null);
+  const [runId, setRunId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setRunId(user.run_id);
+    }
+  }, [user])
 
   useEffect(() => {
     const newLogLines = fetchedLogs.filter((line) => !logs.includes(line))
@@ -73,23 +82,33 @@ export default function InputComponent() {
   }, [newLogs])
 
   const fetchInputs = async () => {
-    const res = await axios.get("http://localhost:5000/document_sources", {
-      params: { run_id: runId }
-    });
-    console.log('fetchInputs', res.data);
-    setDocuments(res.data.document_sources.map((doc: any) => ({
-      ...doc,
-      title: shortenAStringByRemovingCharsInTheMiddle(doc.title, 80),
-    })))
+    await axios.get("http://localhost:5000/document_sources", {
+      params: { run_id: runId },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).then((res: any) => {
+      console.log('fetchInputs', res.data);
+      setDocuments(res.data.document_sources.map((doc: any) => ({
+          ...doc,
+          title: shortenAStringByRemovingCharsInTheMiddle(doc.title, 80),
+        })))
+    }).catch((error: any) => {
+      console.error('Error fetching inputs:', error);
+    })
   }
 
   useEffect(() => {
     fetchInputs()
-  }, [])
+  }, [runId])
 
   const fetchProcessingLogs = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/processing_logs");
+      const res = await axios.get("http://localhost:5000/processing_logs", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       console.log('fetchProcessingLogs', res.data);
 
       setFetchedLogs(res?.data?.logs || []);
@@ -169,6 +188,9 @@ export default function InputComponent() {
           run_id: runId,
           file_name: doc.title,
         },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
       console.log("removeDocument response :", response)
     }
@@ -245,7 +267,8 @@ export default function InputComponent() {
         run_id: runId,
       },
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`
       }
     });
     console.log("responseForFiles :", responseForFiles)
@@ -261,7 +284,8 @@ export default function InputComponent() {
         run_id: runId,
       },
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`
       }
     });
     console.log("responseForUrls :", response)
@@ -272,24 +296,29 @@ export default function InputComponent() {
     setIsProcessing(true)
     updateTerminal('Initiating document processing sequence...')
 
-    try {
-      await processFiles()
-      await processUrls()
+    await processFiles()
+    await processUrls()
 
-      const res = await axios.get("http://localhost:5000/launch_run", {
-        params: { 
-          run_id: runId, 
-        },
-      });
+    await axios.get("http://localhost:5000/launch_run", {
+      params: { 
+        run_id: runId, 
+      },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).then((res: any) => {
       console.log("res :", res)
       setLogs([])
       setFetching(true)
-
-    } catch (error) {
-      console.error('Error processing documents:', error);
-      setIsProcessing(false);
-      updateTerminal('An error occurred while processing documents.');
-    }
+    }).catch((error: any) => {
+      if (error.response.status === 401) {
+        setIsProcessing(false);
+        updateTerminal('Error: credits exhausted or API key not valid.')
+      } else {
+        updateTerminal('Error: failed to launch run.')
+        console.error('Error processing documents:', error);
+      }
+    })
   }
 
   return (

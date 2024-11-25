@@ -16,6 +16,8 @@ import ReactMarkdown from 'react-markdown'
 import { Card, CardContent } from './ui/card'
 import axios from 'axios'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useAuth } from '@/hooks/useAuth'
 
 type Document = {
   id: string
@@ -147,6 +149,8 @@ function DocumentDetails({ document, onDocumentSelect, allDocuments, runId }: {
 }) {
   const [sourceNodeInfo, setSourceNodeInfo] = useState<any>(null)
   const [formattedSummary, setFormattedSummary] = useState<string | null>(null)
+  const { token } = useAuth() as any
+
   useEffect(() => {
     setFormattedSummary(formatSummary(document.summary || ''))
   }, [document.summary])
@@ -157,6 +161,9 @@ function DocumentDetails({ document, onDocumentSelect, allDocuments, runId }: {
         params: { 
           run_id: runId, 
           node_id: document.source_node_id 
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
         }
       })
       setSourceNodeInfo(res.data.source_node_info)
@@ -260,6 +267,8 @@ export default function BrowseAskComponent() {
   const [nodes, setNodes] = useState<any>(null)
   const [edges, setEdges] = useState<any>(null)
   const [runId, setRunId] = useState('0')
+  const { token, apiKey } = useAuth() as any
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
     setSelectedCategorySummary(formatSummary(selectedCategory?.introduction || ''))
@@ -267,7 +276,12 @@ export default function BrowseAskComponent() {
 
   const basicFetch = async (type: string, runId: string) => {
     try {
-      const res = await axios.get(`http://localhost:5000/${type}`, { params: { run_id: runId } })
+      const res = await axios.get(`http://localhost:5000/${type}`, { 
+        params: { run_id: runId },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
       return res.data
     } catch (err) {
       console.log(err)
@@ -311,13 +325,22 @@ export default function BrowseAskComponent() {
     }
 
     const res = await axios.get("http://localhost:5000/ask_query", {
-      params: { run_id: runId, query: question },
+      params: { run_id: runId, query: question, api_key: apiKey },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).then((res: any) => {
+      const response = res.data.answer
+      const generatedAnswer = generateAnswer(question, response)
+      setAnswer(generatedAnswer)
+      setQuestion('')
+    }).catch((error) => {
+      if (error.response && error.response.status === 401) {
+        setMessage('Credits exhausted or API key not valid')
+      } else {
+        setMessage('Ask query failed')
+      }
     })
-
-    const response = res.data.answer
-    const generatedAnswer = generateAnswer(question, response)
-    setAnswer(generatedAnswer)
-    setQuestion('')
   }
 
   const allTags = useMemo(() => {
@@ -464,6 +487,11 @@ export default function BrowseAskComponent() {
                     <pre className="text-emerald-400 bg-black/50 p-4 rounded-md border border-emerald-900 whitespace-pre-wrap">
                       {answer}
                     </pre>
+                  </div>
+                )}
+                {message && (
+                  <div className="mt-4 font-mono text-red-400">
+                    {message}
                   </div>
                 )}
               </div>

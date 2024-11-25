@@ -1,3 +1,5 @@
+import functools
+import json
 import logging
 from typing import Any, Dict
 import flask
@@ -5,7 +7,7 @@ import os
 import threading
 import datetime
 from flask_cors import CORS
-import json
+import jwt
 from werkzeug.utils import secure_filename
 
 from src.run.utils import base_dir_for_run
@@ -25,7 +27,8 @@ from cli import (
     generate_document_types_information, 
     generate_classification_summaries, 
     generate_links_between_documents,
-    query_with_composed_retriever
+    query_with_composed_retriever,
+    set_api_key
 )
 
 from src.document.document import (
@@ -38,6 +41,7 @@ from src.document.document import (
     load_web_pages,
     remove_uploaded_file
 )
+from src.user.user import check_user_password_from_profile, create_token, create_user_profile, get_user_profile, require_auth, save_api_key_in_profile
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +55,19 @@ results = {
 
 app = flask.Flask(__name__)
 CORS(app)
+
+def handle_api_key_exceptions(f):
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            if "401" in str(e) or "402" in str(e):
+                return flask.jsonify({
+                    "error": "Credits exhausted or API key not valid"
+                }), 401
+            raise e
+    return decorated_function
 
 def add_log(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -82,7 +99,7 @@ def run_pipeline(run_id):
         add_log("Pipeline completed")
 
     except Exception as e:
-        results["status"] = "error"
+        results["status"] = "failed"
         logger.error(f"Pipeline error: {e}")
         add_log(f"Pipeline error: {e}")
 
@@ -120,21 +137,13 @@ def ensure_upload_folder(run_id):
     os.makedirs(folder, exist_ok=True)
     return folder
 
-@app.route("/")
-def index():
-    return "Hello, World!"
-
 @app.route("/processing_logs")
+@require_auth
 def get_processing_logs():
     return flask.jsonify(results)
 
-@app.route("/runs")
-def get_runs():
-    return flask.jsonify({
-        "run_folders": get_run_folders()
-    })
-
 @app.route("/store")
+@require_auth
 def get_final_store():
     run_id = flask.request.args.get("run_id")
     return flask.jsonify({
@@ -142,8 +151,13 @@ def get_final_store():
     })
 
 @app.route("/tree")
+@require_auth
 def get_tree():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     nodes, edges = get_tree_nodes_and_edges(run_id)
     return flask.jsonify({
         "nodes": nodes,
@@ -162,8 +176,13 @@ def document_source_info(node):
     }
 
 @app.route("/document_sources")
+@require_auth
 def document_sources():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     source_nodes = get_source_nodes(run_id, 'output')
 
     processed = os.path.exists(os.path.join(base_dir_for_run(run_id, 'output'), "store_5.json"))
@@ -181,8 +200,13 @@ def document_sources():
     })
 
 @app.route("/source_node_info")
+@require_auth
 def source_node_info():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     node_id = flask.request.args.get("node_id")
     node = get_source_node(run_id, node_id, 'output')
     MAX_TEXT_LENGTH = 2000
@@ -200,63 +224,115 @@ def get_node_text(run_id, node_id):
     return store.get_node_text(node_id)
 
 @app.route("/node_text")
+@require_auth
 def node_text():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     node_id = flask.request.args.get("node_id")
     return flask.jsonify({
         "text": get_node_text(run_id, node_id)
     })
 
 @app.route("/node_summary")
+@require_auth
 def node_summary():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     node_id = flask.request.args.get("node_id")
-    print("node_id :", node_id)
     return flask.jsonify({
         "summary": get_node_summary(run_id, node_id)
     })
 
 @app.route("/similar_nodes")
+@require_auth
 def similar_nodes():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     node_id = flask.request.args.get("node_id")
     return flask.jsonify({
         "similar_nodes": get_similar_nodes_id(run_id, node_id)
     })
 
 @app.route("/category_tree")
+@require_auth
 def category_tree():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     store = get_store(run_id)
     return flask.jsonify({
         "category_tree": store.get_category_tree()
     })
 
 @app.route("/ask_query")
+@require_auth
+@handle_api_key_exceptions
 def ask_query():
-    print("ask query")
-    run_id = flask.request.args.get("run_id")
+    logger.info("/ask_query")
+    api_key = flask.g.user_api_key
+    if api_key is None:
+        return flask.jsonify({
+            "error": "No API key provided"
+        }), 401
+    set_api_key(api_key)
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     query = flask.request.args.get("query")
     args = Args(run_id, query)
-    print("query :", query) 
+    logger.info("query :", query) 
     response = query_with_composed_retriever(run_id, 'output', args)
-    print("response for run_id :", run_id, "and query :", query, " with args :", args, " is :", response)
+    logger.info("response for run_id :", run_id, "and query :", query, " with args :", args, " is :", response)
+
     return flask.jsonify({
         "answer": response.response
     })
 
+
+# launch a run
 @app.route("/launch_run")
+@require_auth
+@handle_api_key_exceptions
 def launch_run():
-    run_id = flask.request.args.get("run_id")
-    start = threading.Thread(target=run_pipeline, args=(run_id))
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
+    api_key = flask.g.user_api_key
+    if api_key is None:
+        return flask.jsonify({
+            "error": "No API key provided"
+        }), 401
+    logger.info(f"Launching run for run_id {run_id} with api_key {api_key}")
+    set_api_key(api_key)
+    start = threading.Thread(target=run_pipeline, args=[run_id])
     start.start()
     return flask.jsonify({
         "status": "ok"
     })
 
 @app.route("/remove_uploaded_file", methods=['POST'])
+@require_auth
 def remove_upload():
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     file_name = flask.request.args.get("file_name")
     logger.info(f"Removing file {file_name} from run_id {run_id}")
     remove_uploaded_file(run_id, file_name, 'output', "files")
@@ -265,16 +341,21 @@ def remove_upload():
     })
 
 @app.route('/upload-files', methods=['POST'])
+@require_auth
 def upload_files():
     logger.info("/upload-files")
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
 
     upload_folder = ensure_upload_folder(run_id)
 
     files = flask.request.files.getlist("files")    
     for file in files:
         file_path = os.path.join(upload_folder, file.filename)
-        print("saving file_path:", file_path)
+        logger.info("saving file_path:", file_path)
         file.save(file_path)
 
     load_uploaded_files(run_id, upload_folder, 'output')
@@ -284,9 +365,14 @@ def upload_files():
     }), 200
 
 @app.route('/add-samples', methods=['POST'])
+@require_auth
 def add_samples():
     logger.info("/add-samples")
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     samples = flask.request.args.get("samples")
     shuffle = flask.request.args.get("shuffle") == "true"
     max_document_size = flask.request.args.get("max_document_size")
@@ -302,9 +388,14 @@ def add_samples():
     }), 200
 
 @app.route("/add-urls", methods=['POST'])
+@require_auth
 def add_urls():
     logger.info("/add-urls")
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     urls = [url for url in flask.request.form.get("urls").split(",") if url != '']
     max_document_size = flask.request.form.get("max_document_size")
     max_document_size = int(max_document_size)
@@ -315,9 +406,14 @@ def add_urls():
     }), 200
 
 @app.route("/add-search-results", methods=['POST'])
+@require_auth
 def add_search_results():
     logger.info("/add-search-results")
-    run_id = flask.request.args.get("run_id")
+    run_id = flask.g.user_run_id
+    if run_id is None:
+        return flask.jsonify({
+            "error": "No run_id provided"
+        }), 400
     query = flask.request.form.get("query")
     nb_pages = flask.request.form.get("nb_pages")
     nb_pages = int(nb_pages)
@@ -328,20 +424,77 @@ def add_search_results():
         "message": "Search results added successfully"
     }), 200
 
+
 @app.route("/login", methods=['POST'])
 def login():
+    logger.info("/login")
+    logger.info(flask.request.form)
+    email = flask.request.form.get("email")
+    password = flask.request.form.get('password')
+    user_profile = get_user_profile(email)
+    if not user_profile or not check_user_password_from_profile(user_profile, password):
+        return flask.jsonify({
+            "error": "Invalid email or password"
+        }), 401
+
+    # create a token for the user
+    token = create_token(email, user_profile["api_key"], user_profile["run_id"])
+
     return flask.jsonify({
         "data": {
             "user": {
-                "id": 1,
-                "name": "John Doe"
+                "email": email,
+                "api_key": user_profile["api_key"]
             },
-            "token": "1234567890"
+            "token": token
         }
     }), 200
 
 @app.route("/logout", methods=['POST'])
+@require_auth
 def logout():
     return flask.jsonify({
         "status": "ok"
+    }), 200
+
+
+@app.route("/register", methods=['POST'])
+def register():
+    email = flask.request.form.get("email")
+    password = flask.request.form.get("password")
+    confirm_password = flask.request.form.get("confirm_password")
+    if password != confirm_password:
+        logger.info("Passwords do not match")
+        return flask.jsonify({
+            "error": "Passwords do not match"
+        }), 400
+    api_key = flask.request.form.get("api_key")
+    res = create_user_profile(email, password, api_key)
+    if not res:
+        logger.info("User already exists")
+        return flask.jsonify({
+            "error": "User already exists"
+        }), 400
+    
+    logger.info("User created successfully")
+    return flask.jsonify({
+        "status": "ok"
+    }), 200
+
+
+@app.route("/save_api_key", methods=['POST'])
+@require_auth
+def save_api_key():
+    api_key = flask.request.form.get("api_key")
+    logger.info(f"Saving API key: {api_key}")
+    res = save_api_key_in_profile(flask.g.user_email, api_key)
+    if not res:
+        return flask.jsonify({
+            "error": "User not found"
+        }), 400
+    # generate a new token to handle the new api key
+    token = create_token(flask.g.user_email, api_key, flask.g.user_run_id)
+    return flask.jsonify({
+        "status": "ok",
+        "token": token
     }), 200

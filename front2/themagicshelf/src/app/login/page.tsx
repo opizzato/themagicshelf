@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from '@/hooks/useAuth'
 import axios from 'axios'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 export default function Component() {
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login')
@@ -17,20 +19,36 @@ export default function Component() {
   const { login } = useAuth() as any
 
   const loginQuery = async () => {
-    const response = await axios.post("http://localhost:5000/login", {
-      username: email,
-      password: password
-    }, {
+    setMessage('')
+    const formData = new FormData();
+    formData.append("email", email);
+    formData.append("password", password);
+    const response = await axios.post("http://localhost:5000/login", formData, {
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'multipart/form-data'
       }
+    }).catch((error) => {
+      setMessage(error.response.data.error)
     })
-    if (response.status === 200) {
-      console.log('login', login)
-      login(response.data.data)
-    } else {
-      setMessage('Invalid username or password')
-    }
+    console.log('response', response)
+    login(response?.data?.data)
+  }
+
+  const registerQuery = async () => {
+    setMessage('')
+    const formData = new FormData();
+    formData.append("email", email);
+    formData.append("password", password);
+    formData.append("confirm_password", confirmPassword);
+    const response = await axios.post("http://localhost:5000/register", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }).then((response: any) => {
+      setMessage('Account created successfully')
+    }).catch((error) => {
+      setMessage(error.response.data.error)
+    })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -40,7 +58,7 @@ export default function Component() {
         loginQuery()
         break
       case 'register':
-        console.log('Registering...', { email, password })
+        registerQuery()
         break
       case 'reset':
         console.log('Resetting password...', { email })
@@ -80,6 +98,12 @@ export default function Component() {
             <Button type="submit" className="w-full bg-green-700 hover:bg-green-600 text-black font-bold">
               Enter
             </Button>
+            {message && (
+              <Alert className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
           </>
         )
       case 'register':
@@ -124,6 +148,12 @@ export default function Component() {
             <Button type="submit" className="w-full bg-green-700 hover:bg-green-600 text-black font-bold">
               Create Account
             </Button>
+            {message && (
+              <Alert className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
           </>
         )
       case 'reset':
@@ -144,6 +174,12 @@ export default function Component() {
             <Button type="submit" className="w-full bg-green-700 hover:bg-green-600 text-black font-bold">
               Reset Password
             </Button>
+            {message && (
+              <Alert className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
           </>
         )
     }

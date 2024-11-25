@@ -58,25 +58,28 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-load_dotenv()
-NVIDIA_API_KEY = os.getenv('NVIDIA_API_KEY')
-llm = LLMWrapper(
-    # model="meta/llama-3.1-70b-instruct", 
-    model="meta/llama3-70b-instruct", 
-    # model="meta/llama-3.2-3b-instruct", # timeout
-    # model="nvidia/llama-3.1-nemotron-70b-instruct", 
-    # model="meta/llama-3.2-3b-instruct",
-    max_nb_calls=800, 
-    # max_nb_calls_cache_miss=0,
-    kwargs={"temperature": 0}
-)
-embed_model = EmbeddingWrapper(
-    model="NV-Embed-QA", 
-    max_nb_calls=800,
-    # max_nb_calls_cache_miss=0,
-)
-Settings.llm = llm
-Settings.embed_model = embed_model
+# load_dotenv()
+# NVIDIA_API_KEY = os.getenv('NVIDIA_API_KEY')
+
+
+def set_api_key(api_key: str):
+    os.environ["NVIDIA_API_KEY"] = api_key
+    Settings.llm = LLMWrapper(
+        # model="meta/llama-3.1-70b-instruct", 
+        model="meta/llama3-70b-instruct", 
+        # model="meta/llama-3.2-3b-instruct", # timeout
+        # model="nvidia/llama-3.1-nemotron-70b-instruct", 
+        # model="meta/llama-3.2-3b-instruct",
+        max_nb_calls=800, 
+        # max_nb_calls_cache_miss=0,
+        kwargs={"temperature": 0}
+    )
+    Settings.embed_model = EmbeddingWrapper(
+        model="NV-Embed-QA", 
+        max_nb_calls=800,
+        # max_nb_calls_cache_miss=0,
+    )
+
 
 
 def load_documents(run_id: str, base_dir: str, args=None):
@@ -169,18 +172,18 @@ def create_chunks_and_summaries(run_id: str, base_dir: str, args=None):
     nodes = load_nodes(os.path.join(base_dir_for_run(run_id, base_dir), "nodes_0.json"))
 
     response_synthesizer = CascadeSummarize(
-        llm=llm,
+        llm=Settings.llm,
         callback_manager=CallbackManager([]),
         use_max_chunks=10,
     )
     index = CascadeSummaryIndex.from_documents(
         nodes,
-        llm=llm,
+        llm=Settings.llm,
         transformations=[
             SentenceSplitter( chunk_size=350, chunk_overlap=50),
         ],
         response_synthesizer=response_synthesizer,
-        embed_model=embed_model,
+        embed_model=Settings.embed_model,
         show_progress=True,
         summary_query=DOCUMENT_SUMMARY,
         embed_summaries=False,        
@@ -199,8 +202,8 @@ def get_summary_index(run_id: str=None, base_dir: str="output"):
     index_struct = json_to_index_struct(store_data)
     index = DocumentSummaryIndex(
         storage_context=storage_context, 
-        llm=llm,
-        embed_model=embed_model,
+        llm=Settings.llm,
+        embed_model=Settings.embed_model,
         index_struct=index_struct,
         embed_summaries=False,
     )
@@ -247,7 +250,7 @@ def generate_classification_system(run_id: str=None, base_dir: str="output", arg
 
     nodes = IngestionPipeline(transformations=[
         ClassificationAssignementExtractor(
-            llm=llm, 
+            llm=Settings.llm, 
             use_fake_node_assignment=False,
             predefined_tree_and_tags="",
             log_dir=base_dir_for_run(run_id)
@@ -265,7 +268,7 @@ def generate_classification_system(run_id: str=None, base_dir: str="output", arg
     index = ClassificationIndex(
         nodes=nodes,
         store=ClassificationIndexStore(persist_path=store_path),
-        llm=llm,
+        llm=Settings.llm,
     )
     index.persist()
     return "store_0.json"
@@ -274,7 +277,7 @@ def generate_document_types_information(run_id: str=None, base_dir: str="output"
     nodes = load_nodes(os.path.join(base_dir_for_run(run_id), "nodes_2.json"))
     nodes = IngestionPipeline(transformations=[
         DocumentTypeExtractor(
-            llm=llm, 
+            llm=Settings.llm, 
             use_fake_node_assignment=False,
             log_dir=base_dir_for_run(run_id)
         ),
@@ -304,7 +307,7 @@ def clean_and_regroup_document_types(run_id: str=None, base_dir: str="output", a
     nodes_types = list(sorted(set(nodes_types)))
     logger.info(f"raw nodes_types: {nodes_types}")
 
-    response = llm.predict(
+    response = Settings.llm.predict(
         PromptTemplate(template=CLEAN_TYPES),
         types_str=nodes_types,
         timeout=10,
@@ -348,7 +351,7 @@ def clean_and_regroup_document_types(run_id: str=None, base_dir: str="output", a
     )
 
     for cleaned_type in iterable_with_progress:
-        prompt = llm.predict(
+        prompt = Settings.llm.predict(
             PromptTemplate(template=GENERATE_SUMMARY_PROMPT_BY_TYPE_2),
             document_type=cleaned_type,
             timeout=10,
@@ -374,8 +377,8 @@ def generate_typed_summaries(run_id: str=None, base_dir: str="output", args=None
     index_struct = json_to_index_struct(store_data)
     summary_index = DocumentSummaryIndex(
         storage_context=storage_context, 
-        llm=llm,
-        embed_model=embed_model,
+        llm=Settings.llm,
+        embed_model=Settings.embed_model,
         index_struct=index_struct,
         embed_summaries=False,
     )
@@ -397,14 +400,14 @@ def generate_typed_summaries(run_id: str=None, base_dir: str="output", args=None
             if node.metadata["type"] == doc_type:
 
                 response_synthesizer = CascadeSummarize(
-                    llm=llm,
+                    llm=Settings.llm,
                     callback_manager=CallbackManager([]),
                 )
                 summary_index_typed = CascadeSummaryIndex(
                     storage_context.docstore.get_nodes(summaries_ids_chunks[node.id_]),
-                    llm=llm,
+                    llm=Settings.llm,
                     response_synthesizer=response_synthesizer,
-                    embed_model=embed_model,
+                    embed_model=Settings.embed_model,
                     show_progress=False,
                     summary_query=prompt,
                     embed_summaries=False,
@@ -415,7 +418,6 @@ def generate_typed_summaries(run_id: str=None, base_dir: str="output", args=None
                 summary_nodes = summary_index_typed.docstore.get_nodes(summary_ids)
                 for summary_node in summary_nodes:
                     general_node = summary_node.relationships[NodeRelationship.SOURCE]
-                    print(summary_node.metadata)
 
                     for branch_node in branch_nodes:
                         related = branch_node.relationships[NodeRelationship.SOURCE]
@@ -436,7 +438,7 @@ def get_classification_index(run_id: str=None, base_dir: str="output", persist_n
     persist_file = os.path.join(base_dir_for_run(run_id, base_dir), persist_name)   
     logger.info(f"get classification index from {persist_file=}")
     store = ClassificationIndexStore.from_store_path(persist_path=persist_file)
-    index = ClassificationIndex.from_store(llm=llm, store=store, log_dir=base_dir_for_run(run_id))
+    index = ClassificationIndex.from_store(llm=Settings.llm, store=store, log_dir=base_dir_for_run(run_id))
     logger.info(f"success getting classification index from {persist_file=}")
     return index
 
@@ -476,7 +478,7 @@ def generate_classification_summaries(run_id: str=None, base_dir: str="output", 
 
     # create summary for each branch node
     response_synthesizer = CascadeSummarize(
-        llm=llm,
+        llm=Settings.llm,
         callback_manager=CallbackManager([]),
     )
     summary_index = CascadeSummaryIndex(
@@ -550,7 +552,7 @@ def generate_sub_classification_summaries(run_id: str=None, base_dir: str="outpu
             context_str = "\n\n".join(text_chunks)
 
             # summarize the path
-            response = llm.predict(
+            response = Settings.llm.predict(
                 DEFAULT_TREE_SUMMARIZE_PROMPT,
                 context_str=context_str,
                 query_str=SUB_CLASSIFICATION_SUMMARY,
@@ -652,7 +654,7 @@ def query_with_composed_retriever(run_id: str=None, base_dir: str="output", args
 
     store_path = os.path.join(base_dir_for_run(run_id), "store_5.json")
     store = ClassificationIndexStore.from_store_path(persist_path=store_path)
-    index = ClassificationIndex.from_store(llm=llm, store=store, log_dir=base_dir_for_run(run_id))
+    index = ClassificationIndex.from_store(llm=Settings.llm, store=store, log_dir=base_dir_for_run(run_id))
 
     classification_retriever = index.as_retriever()
 
@@ -664,14 +666,13 @@ def query_with_composed_retriever(run_id: str=None, base_dir: str="output", args
         log_dir=base_dir_for_run(run_id)
     )
 
-    Settings.llm = llm
     query_engine = RetrieverQueryEngine(
         retriever=compose_retriever
     )
 
     response = query_engine.query(query_str)
 
-    print(f"response for run_id : {run_id} and query : {query_str} is : {response.response}")
+    logger.info(f"response for run_id : {run_id} and query : {query_str} is : {response.response}")
 
     return response
 

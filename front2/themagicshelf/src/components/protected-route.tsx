@@ -10,10 +10,6 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isProtected, setIsProtected] = useState(true)
 
   useEffect(() => {
-    console.log("isProtected", isProtected)
-  }, [isProtected])
-
-  useEffect(() => {
     if (!token) {
       setIsProtected(true)
       router.push('/login') // Redirect to login if not authenticated

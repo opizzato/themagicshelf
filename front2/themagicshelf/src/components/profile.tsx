@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,10 +10,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Separator } from "@/components/ui/separator"
 import axios from 'axios'
 import { useAuth } from '@/hooks/useAuth'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 
 export default function ProfilePage() {
   const [email] = useState('user@example.com')
-  const [apiKey, setApiKey] = useState('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
   const [apiCalls, setApiCalls] = useState(1234)
   const [carbonFootprint, setCarbonFootprint] = useState(5.67)
   const [startTime, setStartTime] = useState(new Date())
@@ -21,13 +21,35 @@ export default function ProfilePage() {
   const [carbonFootprintThreshold, setCarbonFootprintThreshold] = useState(5)
   const { logout } = useAuth() as any
   const [message, setMessage] = useState('')
+  const [newApiKey, setNewApiKey] = useState('')
+  const { token, apiKey, setApiKey, setToken } = useAuth() as any
   
+
+  useEffect(() => {
+    if (apiKey) {
+      setNewApiKey(apiKey)
+    }
+  }, [apiKey])
+
   const handleApiKeyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setApiKey(event.target.value)
+    setNewApiKey(event.target.value)
   }
 
-  const handleSaveApiKey = () => {
-    console.log('Saving API key:', apiKey)
+  const handleSaveApiKey = async () => {
+    const formData = new FormData() 
+    formData.append('api_key', newApiKey)
+    const response = await axios.post("http://localhost:5000/save_api_key", formData, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).catch((error) => {
+      setMessage('Save API key failed')
+    }).then((response: any) => {
+      setMessage('API key saved')
+      setApiKey(newApiKey)
+      console.log('response', response)
+      setToken(response.data.token)
+    })
   }
 
   const handleResetCounters = () => {
@@ -49,14 +71,17 @@ export default function ProfilePage() {
       username: email,
     }, {
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
+    }).catch((error) => {
+      console.error('Logout failed', error)
     })
-    if (response.status === 200) {
-      console.log('logout', logout)
-      logout(response.data.data)
+    if (response && response.status === 200) {
+      logout()
     } else {
       setMessage('Logout failed')
+      logout()
     }
   }
 
@@ -88,7 +113,7 @@ export default function ProfilePage() {
             <div className="flex space-x-2">
               <Input 
                 id="api-key" 
-                value={apiKey} 
+                value={newApiKey} 
                 onChange={handleApiKeyChange} 
                 className="font-mono border-green-500/20 bg-black/50 text-green-500"
               />
@@ -184,7 +209,7 @@ export default function ProfilePage() {
         </CardContent>
         <CardFooter className="border-t border-green-500/20">
        <div className="mx-auto mt-4">
-        {message && <p className="text-red-500">{message}</p>}
+        {message && <p className="text-green-500 mb-2">{message}</p>}
           <Button 
               variant="outline" 
               onClick={handleLogout}
