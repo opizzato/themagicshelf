@@ -137,6 +137,12 @@ def ensure_upload_folder(run_id):
     os.makedirs(folder, exist_ok=True)
     return folder
 
+@app.route("/")
+def live_beacon():
+    return flask.jsonify({
+        "status": "alive"
+    })
+
 @app.route("/processing_logs")
 @require_auth
 def get_processing_logs():
