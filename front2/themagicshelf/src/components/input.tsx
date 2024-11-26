@@ -82,7 +82,7 @@ export default function InputComponent() {
   }, [newLogs])
 
   const fetchInputs = async () => {
-    await axios.get("http://localhost:5000/document_sources", {
+    await axios.get(`${process.env.api_rest_url}/document_sources`, {
       params: { run_id: runId },
       headers: {
         Authorization: `Bearer ${token}`
@@ -104,7 +104,7 @@ export default function InputComponent() {
 
   const fetchProcessingLogs = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/processing_logs", {
+      const res = await axios.get(`${process.env.api_rest_url}/processing_logs`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -183,7 +183,7 @@ export default function InputComponent() {
     console.log("removing doc :", doc)
 
     if (doc?.type === 'pdf') {
-      const response = await axios.post("http://localhost:5000/remove_uploaded_file", null, {
+      const response = await axios.post(`${process.env.api_rest_url}/remove_uploaded_file`, null, {
         params: { 
           run_id: runId,
           file_name: doc.title,
@@ -262,7 +262,7 @@ export default function InputComponent() {
         formData.append('files', doc.file, doc.title);
       }
     });
-    const responseForFiles = await axios.post("http://localhost:5000/upload-files", formData, {
+    const responseForFiles = await axios.post(`${process.env.api_rest_url}/upload-files`, formData, {
       params: { 
         run_id: runId,
       },
@@ -279,7 +279,7 @@ export default function InputComponent() {
     const formData = new FormData();
     formData.append("urls", documents.filter((doc) => doc.type === 'url' || doc.type === 'preprocessed').map((doc) => doc.url).join(","));
     formData.append("max_document_size", "100000");
-    const response = await axios.post("http://localhost:5000/add-urls", formData, {
+    const response = await axios.post(`${process.env.api_rest_url}/add-urls`, formData, {
       params: {
         run_id: runId,
       },
@@ -299,7 +299,7 @@ export default function InputComponent() {
     await processFiles()
     await processUrls()
 
-    await axios.get("http://localhost:5000/launch_run", {
+    await axios.get(`${process.env.api_rest_url}/launch_run`, {
       params: { 
         run_id: runId, 
       },

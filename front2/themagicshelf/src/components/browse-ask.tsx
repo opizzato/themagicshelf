@@ -157,7 +157,7 @@ function DocumentDetails({ document, onDocumentSelect, allDocuments, runId }: {
 
   const fetchNodeInfo = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/source_node_info`, { 
+      const res = await axios.get(`${process.env.api_rest_url}/source_node_info`, { 
         params: { 
           run_id: runId, 
           node_id: document.source_node_id 
@@ -276,7 +276,7 @@ export default function BrowseAskComponent() {
 
   const basicFetch = async (type: string, runId: string) => {
     try {
-      const res = await axios.get(`http://localhost:5000/${type}`, { 
+      const res = await axios.get(`${process.env.api_rest_url}/${type}`, { 
         params: { run_id: runId },
         headers: {
           Authorization: `Bearer ${token}`
@@ -324,7 +324,7 @@ export default function BrowseAskComponent() {
       return `> Processing query: "${q}"\n\nResponse: ${response}`
     }
 
-    const res = await axios.get("http://localhost:5000/ask_query", {
+    const res = await axios.get(`${process.env.api_rest_url}/ask_query`, {
       params: { run_id: runId, query: question, api_key: apiKey },
       headers: {
         Authorization: `Bearer ${token}`

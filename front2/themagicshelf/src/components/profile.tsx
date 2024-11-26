@@ -38,7 +38,7 @@ export default function ProfilePage() {
   const handleSaveApiKey = async () => {
     const formData = new FormData() 
     formData.append('api_key', newApiKey)
-    const response = await axios.post("http://localhost:5000/save_api_key", formData, {
+    const response = await axios.post(`${process.env.api_rest_url}/save_api_key`, formData, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -67,7 +67,7 @@ export default function ProfilePage() {
   }
 
   const logoutQuery = async () => {
-    const response = await axios.post("http://localhost:5000/logout", {
+    const response = await axios.post(`${process.env.api_rest_url}/logout`, {
       username: email,
     }, {
       headers: {
