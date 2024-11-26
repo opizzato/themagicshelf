@@ -16,11 +16,10 @@ export const register = async (params: RegisterParams) => {
         headers: {
             "Accept": "application/json",
             "Content-Type": "application/json;charset=UTF-8",
-            'application-key': process.env.app_api_key,
         }
     };
     try {
-        const url = `${process.env.api_rest_url}/user`;
+        const url = `${process.env.NEXT_PUBLIC_API_REST_URL}/user`;
         const resp = await axios.post(url, { 
             user_app_id: params.user_name,
             email: params.email,

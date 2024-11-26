@@ -10,11 +10,10 @@ export const recoverQuery = async (email: string) => {
         headers: {
             "Accept": "application/json",
             "Content-Type": "application/json;charset=UTF-8",
-            'application-key': process.env.app_api_key,
         }
     };
     try {
-        const url = `${process.env.api_rest_url}/user/recover`;
+        const url = `${process.env.NEXT_PUBLIC_API_REST_URL}/user/recover`;
         const resp = await axios.post(url, { 
             email: email,
         }, config);

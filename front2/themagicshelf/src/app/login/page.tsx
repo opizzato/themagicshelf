@@ -23,7 +23,7 @@ export default function Component() {
     const formData = new FormData();
     formData.append("email", email);
     formData.append("password", password);
-    const response = await axios.post(`${process.env.api_rest_url}/login`, formData, {
+    const response = await axios.post(`${process.env.NEXT_PUBLIC_API_REST_URL}/login`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -40,7 +40,7 @@ export default function Component() {
     formData.append("email", email);
     formData.append("password", password);
     formData.append("confirm_password", confirmPassword);
-    const response = await axios.post(`${process.env.api_rest_url}/register`, formData, {
+    const response = await axios.post(`${process.env.NEXT_PUBLIC_API_REST_URL}/register`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
