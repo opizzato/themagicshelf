@@ -1,3 +1,4 @@
+import traceback
 import functools
 import json
 import logging
@@ -101,6 +102,7 @@ def run_pipeline(run_id):
     except Exception as e:
         results["status"] = "failed"
         logger.error(f"Pipeline error: {e}")
+        logger.error(traceback.format_exc())
         add_log(f"Pipeline error: {e}")
 
 def get_run_number(run):
