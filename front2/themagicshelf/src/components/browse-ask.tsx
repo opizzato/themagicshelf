@@ -266,9 +266,16 @@ export default function BrowseAskComponent() {
   const [store, setStore] = useState<any>(null)
   const [nodes, setNodes] = useState<any>(null)
   const [edges, setEdges] = useState<any>(null)
-  const [runId, setRunId] = useState('0')
+  const [user, setUser] = useLocalStorage('user', null);
+  const [runId, setRunId] = useState<any>(null)
   const { token, apiKey } = useAuth() as any
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (user) {
+      setRunId(user.run_id);
+    }
+  }, [user])
 
   useEffect(() => {
     setSelectedCategorySummary(formatSummary(selectedCategory?.introduction || ''))
@@ -304,8 +311,10 @@ export default function BrowseAskComponent() {
   }
 
   useEffect(() => {
-    fetchStore(runId)
-  }, [])
+    if (runId) {
+      fetchStore(runId)
+    }
+  }, [runId])
 
   const handleCategorySelect = useCallback((category: Category, path: any[]) => {
     setSelectedCategory(category)

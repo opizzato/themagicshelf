@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 
 export default function ProfilePage() {
-  const [email] = useState('user@example.com')
+  const [email, setEmail] = useState('')
   const [apiCalls, setApiCalls] = useState(1234)
   const [carbonFootprint, setCarbonFootprint] = useState(5.67)
   const [startTime, setStartTime] = useState(new Date())
@@ -23,7 +23,13 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('')
   const [newApiKey, setNewApiKey] = useState('')
   const { token, apiKey, setApiKey, setToken } = useAuth() as any
-  
+  const [user, setUser] = useLocalStorage('user', null);
+
+  useEffect(() => {
+    if (user) {
+      setEmail(user.email)
+    }
+  }, [user])
 
   useEffect(() => {
     if (apiKey) {
