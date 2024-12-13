@@ -111,6 +111,7 @@ def require_auth(f):
             flask.g.user_email = decoded['email']
             flask.g.user_api_key = decoded['api_key']
             flask.g.user_run_id = decoded['run_id']
+            logger.info(f"decoded user token: {flask.g.user_email=} {flask.g.user_api_key=} {flask.g.user_run_id=}")
             return f(*args, **kwargs)
         except jwt.InvalidTokenError:
             return flask.jsonify({
