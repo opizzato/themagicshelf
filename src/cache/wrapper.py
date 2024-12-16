@@ -5,6 +5,8 @@ from llama_index.llms.nvidia import NVIDIA
 from llama_index.embeddings.nvidia import NVIDIAEmbedding
 from llama_index.core.base.llms.types import ChatMessage, ChatResponse, CompletionResponse, LLMMetadata
 from llama_index.core.prompts import BasePromptTemplate
+from llama_index.llms.ollama import Ollama
+from llama_index.embeddings.ollama import OllamaEmbedding
 
 from src.cache.file_cache import file_cache, afile_cache
 
@@ -66,16 +68,16 @@ def predict_with_cache(
     return result
 
 # llm cache class
-class LLMWrapper(NVIDIA):
+class LLMWrapper(Ollama):
 
     # field required by pydantic for the constructor
     max_nb_calls: int = Field(default=None)
     max_nb_calls_cache_miss: int = Field(default=None)
 
     def __init__(self, model: str, max_nb_calls: int=None, max_nb_calls_cache_miss: int=None, kwargs: dict=None):
-        super().__init__(model=model, kwargs=kwargs)
+        super().__init__(model=model, base_url="https://chat.darwin-x.com", kwargs=kwargs)
         global global_native_llm
-        global_native_llm = NVIDIA(model=model, kwargs=kwargs)
+        global_native_llm = Ollama(model=model, base_url="https://chat.darwin-x.com", kwargs=kwargs)
         global global_max_nb_llm_calls
         global_max_nb_llm_calls = max_nb_calls
         global global_max_nb_llm_calls_cache_miss
@@ -128,18 +130,18 @@ def _get_text_embeddings_with_cache(texts: List[str]) -> List[List[float]]:
     return global_native_embed_model._get_text_embeddings(texts)
 
 # embedding cache class
-class EmbeddingWrapper(NVIDIAEmbedding):
+class EmbeddingWrapper(OllamaEmbedding):
 
     # field required by pydantic for the constructor
     max_nb_calls: int = Field(default=None)
     max_nb_calls_cache_miss: int = Field(default=None)
 
     def __init__(self, model: str, max_nb_calls: int=None, max_nb_calls_cache_miss: int=None, kwargs: dict=None):
-        super().__init__(model=model, kwargs=kwargs)
+        super().__init__(model_name=model, base_url="https://chat.darwin-x.com", ollama_additional_kwargs={"mirostat": 0}, kwargs=kwargs)
         global global_native_embed_model
-        global_native_embed_model = NVIDIAEmbedding(model=model, kwargs=kwargs)
+        global_native_embed_model = OllamaEmbedding(model_name=model, base_url="https://chat.darwin-x.com", ollama_additional_kwargs={"mirostat": 0},kwargs=kwargs)
         # truncate to the end of chunks if needed to avoid context window exceptions raised by the embedding model
-        global_native_embed_model.truncate = "END"
+        # global_native_embed_model.truncate = "END"
         global global_max_nb_embed_calls
         global_max_nb_embed_calls = max_nb_calls
         global global_max_nb_embed_calls_cache_miss

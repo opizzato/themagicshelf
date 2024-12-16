@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import re
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.callbacks.base import CallbackManager
 from llama_index.core.base.base_retriever import BaseRetriever
@@ -83,8 +84,12 @@ class ClassificationRetriever(BaseRetriever):
                     location, score = line.split(', score:')
                     result['locations'].append({'location': location.strip('- '), 'score': int(score)})
                 elif current_section == 'tags':
+                    if "score:" not in line:
+                        continue
                     tag, score = line.split(', score:')
-                    result['tags'].append({'tag': tag.strip('- '), 'score': int(score)})
+                    # extract number with regex
+                    score = int(re.search(r'\d+', score).group())
+                    result['tags'].append({'tag': tag.strip('- '), 'score': score})
 
         if not result['locations'] or not result['tags']:
             return None

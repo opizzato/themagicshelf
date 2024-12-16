@@ -66,7 +66,10 @@ def set_api_key(api_key: str):
     os.environ["NVIDIA_API_KEY"] = api_key
     Settings.llm = LLMWrapper(
         # model="meta/llama-3.1-70b-instruct", 
-        model="meta/llama3-70b-instruct", 
+
+        # model="meta/llama3-70b-instruct",
+        model="Qwen2.5-14B-Instruct-IQ4_XS",
+
         # model="meta/llama-3.2-3b-instruct", # timeout
         # model="nvidia/llama-3.1-nemotron-70b-instruct", 
         # model="meta/llama-3.2-3b-instruct",
@@ -75,7 +78,10 @@ def set_api_key(api_key: str):
         kwargs={"temperature": 0}
     )
     Settings.embed_model = EmbeddingWrapper(
-        model="NV-Embed-QA", 
+
+        # model="NV-Embed-QA", 
+        model="mxbai-embed-large:latest",
+
         max_nb_calls=800,
         # max_nb_calls_cache_miss=0,
     )
@@ -743,6 +749,9 @@ if __name__ == "__main__":
     callback_manager = CallbackManager([llama_debug])
     Settings.callback_manager = callback_manager
 
+    NVIDIA_API_KEY = os.getenv('NVIDIA_API_KEY')
+    set_api_key(NVIDIA_API_KEY)
+    
     run_pipeline(args.run_id, args.base_dir, args.steps, args=args)
 
     save_llama_debug(llama_debug, args.run_id, args.base_dir, args=args)
